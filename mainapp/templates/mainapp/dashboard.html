@@ -96,6 +96,7 @@
             <table id="myTable" class="display" style="width:100%">
                 <thead>
                     <tr>
+                        <th>Side</th>
                         <th>Cust_ID</th>
                         <th>AuthorizationKey</th>
                         <th>Customer</th>
@@ -109,7 +110,6 @@
                         <th>Customer_RequireDate</th>
                         <th>FinishedDate</th>
                         <th>DispatchedDate</th>
-                        <th>Side</th>
                         <th>LensType</th>
                         <th>Corridor</th>
                         <th>Degresstion</th>
@@ -165,6 +165,7 @@
                 <tbody>
                 {% for item in data %}
                     <tr>
+                        <td>{{item.Side}}</td>
                         <td>{{item.Cust_ID}}</td>
                         <td>{{item.AuthorizationKey}}</td>
                         <td>{{item.Customer}}</td>
@@ -184,7 +185,6 @@
                         <td>{{item.Customer_RequireDate}}</td>
                         <td>{{item.FinishedDate}}</td>
                         <td>{{item.DispatchedDate}}</td>
-                        <td>{{item.Side}}</td>
                         <td>{{item.LensType}}</td>
                         <td>{{item.Corridor}}</td>
                         <td>{{item.Degresstion}}</td>
@@ -289,14 +289,14 @@
         $(document).ready(function() {
         // Initialize the DataTable
         var table = $('#myTable').DataTable({
-            dom: 'Bfrtip', // This option adds buttons to the DOM.
-                buttons: [
-                    {
-                        extend: 'excelHtml5',
-                        title: 'Data export',
-                        text: 'Export to Excel'
-                    }
-                ]
+            dom: '<"top"Blf>rtip', // Adjust DOM positioning here
+            buttons: [
+                {
+                    extend: 'excelHtml5',
+                    title: 'Data export',
+                    text: 'Export to Excel'
+                }
+            ]
         });
 
         // Setup the DatePicker
@@ -312,7 +312,7 @@
             function(settings, data, dataIndex) {
                 var min = $('#minDate').datepicker("getDate");
                 var max = $('#maxDate').datepicker("getDate");
-                var startDate = new Date(data[3]); // Assumes date is in the first column
+                var startDate = new Date(data[4]); // Assumes date is in the first column
 
                 if (min == null && max == null) { return true; }
                 if (min == null && startDate <= max) { return true; }
