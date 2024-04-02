@@ -7,7 +7,7 @@ import json
 import ijson
 
 #change limit for show more orders
-def process_large_json(limit=2000):
+def process_large_json(limit=5000):
     file_path = 'mainapp/order_history.json'
     
     with open(file_path, 'rb') as file: 
