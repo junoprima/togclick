@@ -7,12 +7,15 @@ import json
 import ijson
 
 #change limit for show more orders
-def process_large_json(limit=7300):
-    file_path = 'mainapp/order_history.json'
+def process_large_json(limit=7000):
+    file_path = 'mainapp/jsonFiles/order_history.json'
     
     with open(file_path, 'rb') as file: 
         data = ijson.items(file, 'item')
-        data_subset = [obj for _, obj in zip(range(limit), data)]
+        if limit is not None:
+            data_subset = [obj for _, obj in zip(range(limit), data)]
+        else:
+            data_subset = list(data)  # Process all items if limit is None or not provided
     
     return data_subset
 
