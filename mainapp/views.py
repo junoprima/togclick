@@ -46,5 +46,6 @@ def dashboard_view(request):
     data = process_large_json()
     return render(request, 'mainapp/dashboard.html', {'data': data})
 
+
 def logged_out_view(request):
     return render(request, 'logged_out.html')
