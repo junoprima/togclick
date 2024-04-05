@@ -2,28 +2,12 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from pathlib import Path
 import json
 import ijson
-
-#change limit for show more orders
-def process_large_json(limit=1000):
-    file_path = 'mainapp/order_history.json'
-    
-    with open(file_path, 'rb') as file: 
-        data = ijson.items(file, 'item')
-        data_subset = [obj for _, obj in zip(range(limit), data)]
-    
-    return data_subset
-
-
-#def load_json_data():
-#    file_path = Path(settings.BASE_DIR, 'mainapp/test_json.json')
-    
-#    with open(file_path, 'r') as file:
-#        data = json.load(file)
-    
-#    return data
+from pymongo import MongoClient
+from pymongo.errors import ServerSelectionTimeoutError
 
 def read_sql_file(file_path):
     with open(file_path, 'r') as file:
@@ -43,9 +27,106 @@ def login_view(request):
 
 @login_required
 def dashboard_view(request):
-    data = process_large_json()
-    return render(request, 'mainapp/dashboard.html', {'data': data})
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        start = int(request.GET.get('start', 0))
+        length = int(request.GET.get('length', 10))  # Default to 10 if not provided
+        page = start // length + 1
+        
+        # Connect to MongoDB
+        client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
+        db = client['togclick']
+        collection = db['togclick']
+        
+        # Calculate total number of records
+        total_records = collection.count_documents({})
+        
+        # Fetch paginated data
+        data = list(collection.find({}).skip(start).limit(length))
+        client.close()
+        
 
+        formatted_data = [
+            {
+                'Side': item.get('Side', ''),
+                'Cust_ID': item.get('Cust_ID', ''),
+                'AuthorizationKey': item.get('AuthorizationKey', ''),
+                'Customer': item.get('Customer', ''),
+                'orderDate': item.get('orderDate', ''),
+                'OrderCode': item.get('OrderCode', ''),
+                'Express': item.get('Express', ''),
+                'ProductionNumber': item.get('ProductionNumber', ''),
+                'ShopNumber': item.get('ShopNumber', ''),
+                'Est_ReadyDate': item.get('Est_ReadyDate', ''),
+                'Update_Est_FinishedDate': item.get('Update_Est_FinishedDate', ''),
+                'Customer_RequireDate': item.get('Customer_RequireDate', ''),
+                'FinishedDate': item.get('FinishedDate', ''),
+                'DispatchedDate': item.get('DispatchedDate', ''),
+                'LensType': item.get('LensType', ''),
+                'Corridor': item.get('Corridor', ''),
+                'Degresstion': item.get('Degresstion', ''),
+                'LensIndex': item.get('LensIndex', ''),
+                'Dia': item.get('Dia', ''),
+                'SubDia': item.get('SubDia', ''),
+                'Color': item.get('Color', ''),
+                'Coat': item.get('Coat', ''),
+                'SPH': item.get('SPH', ''),
+                'CYL': item.get('CYL', ''),
+                'Axis': item.get('Axis', ''),
+                'Addition': item.get('Addition', ''),
+                'DECX': item.get('DECX', ''),
+                'DECY': item.get('DECY', ''),
+                'PSMH': item.get('PSMH', ''),
+                'PSMH_VALUE': item.get('PSMH_VALUE', ''),
+                'PSMV_VALUE': item.get('PSMV_VALUE', ''),
+                'Tint': item.get('Tint', ''),
+                'TINT_VALUE': item.get('TINT_VALUE', ''),
+                'ORDER_TINT_GRADIENT': item.get('ORDER_TINT_GRADIENT', ''),
+                'Material': item.get('Material', ''),
+                'Cutting': item.get('Cutting', ''),
+                'UV': item.get('UV', ''),
+                'Qty': item.get('Qty', ''),
+                'OrderStatus': item.get('OrderStatus', ''),
+                'Attachment': item.get('Attachment', ''),
+                'Remark': item.get('Remark', ''),
+                'HorBox': item.get('HorBox', ''),
+                'VerBox': item.get('VerBox', ''),
+                'DBL': item.get('DBL', ''),
+                'FarPD': item.get('FarPD', ''),
+                'FittingHeight': item.get('FittingHeight', ''),
+                'NearPD': item.get('NearPD', ''),
+                'SegHeight': item.get('SegHeight', ''),
+                'CVD': item.get('CVD', ''),
+                'FFA': item.get('FFA', ''),
+                'PTA': item.get('PTA', ''),
+                'NormalReadingDistance': item.get('NormalReadingDistance', ''),
+                'CustomizedInset': item.get('CustomizedInset', ''),
+                'Pending': item.get('Pending', ''),
+                'FlashMirror': item.get('FlashMirror', ''),
+                'RoundShape': item.get('RoundShape', ''),
+                'PreOptimized': item.get('PreOptimized', ''),
+                'FrameType': item.get('FrameType', ''),
+                'SharpEdge': item.get('SharpEdge', ''),
+                'OC_Filename': item.get('OC_Filename', ''),
+                'FrameShape': item.get('FrameShape', ''),
+                'DiaOval': item.get('DiaOval', ''),
+                'codemax5': item.get('codemax5', ''),
+                'descriptionmax5': item.get('descriptionmax5', ''),
+                # Continue with other fields...
+            }
+            for item in data
+        ]
+
+        # Prepare the response
+        response = {
+            "draw": int(request.GET.get('draw', 0)),
+            "recordsTotal": total_records,
+            "recordsFiltered": total_records,
+            "data": formatted_data
+        }
+        
+        return JsonResponse(response)
+    else:
+        return render(request, 'mainapp/dashboard.html')
 
 def logged_out_view(request):
     return render(request, 'logged_out.html')
