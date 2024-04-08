@@ -29,7 +29,7 @@ def login_view(request):
 def dashboard_view(request):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         start = int(request.GET.get('start', 0))
-        length = int(request.GET.get('length', 10))  # Default to 10 if not provided
+        length = int(request.GET.get('length', 1000))  # Default to 10 if not provided
         page = start // length + 1
         
         # Connect to MongoDB
@@ -77,6 +77,7 @@ def dashboard_view(request):
                 'DECY': item.get('DECY', ''),
                 'PSMH': item.get('PSMH', ''),
                 'PSMH_VALUE': item.get('PSMH_VALUE', ''),
+                'PSMV': item.get('PSMV', ''),
                 'PSMV_VALUE': item.get('PSMV_VALUE', ''),
                 'Tint': item.get('Tint', ''),
                 'TINT_VALUE': item.get('TINT_VALUE', ''),
@@ -111,6 +112,7 @@ def dashboard_view(request):
                 'DiaOval': item.get('DiaOval', ''),
                 'codemax5': item.get('codemax5', ''),
                 'descriptionmax5': item.get('descriptionmax5', ''),
+                'CustomerGroup': item.get('CustomerGroup', ''),
                 # Continue with other fields...
             }
             for item in data
@@ -125,6 +127,7 @@ def dashboard_view(request):
         }
         
         return JsonResponse(response)
+        #return render(request, 'mainapp/dashboard.html', {'data': formatted_data})
     else:
         return render(request, 'mainapp/dashboard.html')
 
