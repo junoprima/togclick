@@ -24,5 +24,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('login/', login_view, name='login'),
+    path('export-to-excel/', views.export_all_data, name='export'),
     
 ]

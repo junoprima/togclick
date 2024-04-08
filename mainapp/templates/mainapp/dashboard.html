@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 
     <style>
         body, html {
@@ -95,6 +95,9 @@
         <!-- Page Content -->
         <div class="page-content">
             <!-- Content goes here -->
+            <div style="padding-bottom: 10px;">
+                <button id="exportBtn" class="btn btn-primary">Export to Excel</button>
+            </div>
             <p>Date filter: <input type="text" id="minDate" name="minDate"> to <input type="text" id="maxDate" name="maxDate"></p>
             <table id="myTable" class="display" style="width:100%">
                 <thead>
@@ -299,20 +302,26 @@
     <script>
         $(document).ready(function() {
             // Initialize the DataTable with server-side processing
-            var table = $('#myTable').DataTable({
+
+            $('#exportBtn').on('click', function(e) {
+                e.preventDefault();
+                // Initiate the export process
+                window.location.href = "/export-to-excel/";
+            });
+            
+            var table =$('#myTable').DataTable({
                 "processing": true,
                 "serverSide": true,
                 "ajax": {
                     "url": "/dashboard/", // Adjust to your Django view endpoint
                     "type": "GET",
-
                     "data": function(d) {
                         // Pass additional parameters to the server-side processing URL
                         d.minDate = $('#minDate').val();
                         d.maxDate = $('#maxDate').val();
                     }
                 },
-                "dom": '<"top"Bflr>rtip', // Adjust DOM positioning here
+                "dom": '<"top"Bfl>rtip', // Adjust DOM positioning here
                 "buttons": [
                     {
                         extend: 'excelHtml5',
@@ -391,7 +400,7 @@
                 
                 // You might need to adjust or remove this custom filtering since server-side takes care of filtering
             });
-        
+            
             // Setup the DatePicker
             $("#minDate, #maxDate").datepicker({
                 dateFormat: "yy/mm/dd", // Adjust date format as needed

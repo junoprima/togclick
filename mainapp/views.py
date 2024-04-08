@@ -8,6 +8,8 @@ import json
 import ijson
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
+import pandas as pd
+from django.http import HttpResponse
 
 def read_sql_file(file_path):
     with open(file_path, 'r') as file:
@@ -29,7 +31,7 @@ def login_view(request):
 def dashboard_view(request):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         start = int(request.GET.get('start', 0))
-        length = int(request.GET.get('length', 1000))  # Default to 10 if not provided
+        length = int(request.GET.get('length', 10))  # Default to 10 if not provided
         page = start // length + 1
         
         # Connect to MongoDB
@@ -130,6 +132,32 @@ def dashboard_view(request):
         #return render(request, 'mainapp/dashboard.html', {'data': formatted_data})
     else:
         return render(request, 'mainapp/dashboard.html')
+    
+def export_all_data(request):
+# Connect to MongoDB
+    client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
+    db = client['togclick']
+    collection = db['togclick']
+        
+    # Calculate total number of records
+    total_records = collection.count_documents({})
+        
+    # Fetch paginated data
+    data = list(collection.find({}))
+    client.close()
+    
+    df = pd.DataFrame(list(data))
+    # Create a Pandas Excel writer using openpyxl as the engine
+    with pd.ExcelWriter('togclick_export.xlsx', engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    
+    # Read the saved Excel file and create an HttpResponse
+    with open('togclick_export.xlsx', 'rb') as excel:
+        data = excel.read()
+        
+    response = HttpResponse(content=data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="togclick_export.xlsx"'
+    return response
 
 def logged_out_view(request):
     return render(request, 'logged_out.html')
