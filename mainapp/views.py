@@ -4,14 +4,75 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from pathlib import Path
-import json
-import ijson
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
+from django.http import HttpResponse
+from datetime import datetime
+import json
+import ijson
+import pandas as pd
+
 
 def read_sql_file(file_path):
     with open(file_path, 'r') as file:
         return file.read()
+    
+def parse_date(date_string):
+    """Parses a string to a datetime object."""
+    try:
+        return datetime.strptime(date_string, '%Y/%m/%d')
+    except ValueError as e:
+        print(f"Date parsing error: {e}")
+        return None
+    
+def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit=None):
+    client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
+    db = client['togclick']
+    collection = db['togclick']
+
+    # Prepare the filter and projection within an aggregation pipeline
+    pipeline = [
+        {
+            "$addFields": {
+                "parsedOrderDate": {
+                    "$dateFromString": {
+                        "dateString": "$orderDate",
+                        "format": "%Y/%m/%d %H:%M:%S"  # Adjust to match the format used in your MongoDB
+                    }
+                }
+            }
+        },
+        {
+            "$match": {}
+        }
+    ]
+
+    # Add date filters to the match stage if they are provided
+    if min_date or max_date:
+        date_filter = {}
+        if min_date:
+            parsed_min_date = parse_date(min_date)
+            if parsed_min_date:
+                date_filter["$gte"] = parsed_min_date
+        if max_date:
+            parsed_max_date = parse_date(max_date)
+            if parsed_max_date:
+                date_filter["$lte"] = parsed_max_date
+        pipeline[1]["$match"]["parsedOrderDate"] = date_filter
+
+    # Skip and limit if they are provided
+    if skip:
+        pipeline.append({"$skip": skip})
+    if limit:
+        pipeline.append({"$limit": limit})
+
+    try:
+        cursor = collection.aggregate(pipeline)
+        data = list(cursor)
+    finally:
+        client.close()
+
+    return data
 
 def login_view(request):
     if request.method == 'POST':
@@ -27,7 +88,11 @@ def login_view(request):
 
 @login_required
 def dashboard_view(request):
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+    if request.GET.get('export') == 'true':
+        # If it's an export request, call the export function
+        return export_data_to_excel(request)
+    
+    elif request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         start = int(request.GET.get('start', 0))
         length = int(request.GET.get('length', 1000))  # Default to 10 if not provided
         page = start // length + 1
@@ -51,7 +116,7 @@ def dashboard_view(request):
                 'Cust_ID': item.get('Cust_ID', ''),
                 'AuthorizationKey': item.get('AuthorizationKey', ''),
                 'Customer': item.get('Customer', ''),
-                'orderDate': item.get('orderDate', ''),
+                'orderDate': item.get('orderDate', '').split(' ')[0] if item.get('orderDate') else '',
                 'OrderCode': item.get('OrderCode', ''),
                 'Express': item.get('Express', ''),
                 'ProductionNumber': item.get('ProductionNumber', ''),
@@ -131,5 +196,28 @@ def dashboard_view(request):
     else:
         return render(request, 'mainapp/dashboard.html')
 
+def export_data_to_excel(request):
+    min_date = request.GET.get('minDate')
+    max_date = request.GET.get('maxDate')
+    
+    print(f"Export requested with min_date: {min_date}, max_date: {max_date}")
+    
+    data = fetch_filtered_data_from_mongodb(min_date=min_date, max_date=max_date, skip=0, limit=None)
+    
+    if not data:
+        print("No data was returned for export.")
+
+    df = pd.DataFrame(data)
+    
+    if df.empty:
+        print("DataFrame is empty after attempting to convert data to DataFrame.")
+    
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="exported_data.xlsx"'
+    
+    with pd.ExcelWriter(response, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+
+    return response
 def logged_out_view(request):
     return render(request, 'logged_out.html')
