@@ -75,26 +75,57 @@
             text-align: center;
         }
 
+        .exportExcelButton {
+            background-color: #007bff;
+            border: none;
+            color: white;
+            padding-left: 10px;
+            padding-right: 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            transition-duration: 0.4s;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        
+        .exportExcelButton:hover {
+            background-color: white;
+            color: black;
+            border: 2px solid #007bff;
+        }
+
+        .top, .bottom {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .tableWrapper {
+            clear: both;
+        }
+
     </style>
 </head>
 <body>
 
     <div class="top-bar">
-        <span class="toggle-btn">&#9776; Toggle Sidebar</span>
+        <span class="toggle-btn" style="font-size:1em; ">&#9776;</span>
     </div>
 
     <div class="wrapper">
         <!-- Sidebar -->
         <nav class="sidebar" id="sidebar">
             <ul class="list-unstyled components">
-                <li><a href="/dashboard">Home</a></li>
+                <li><a style="color: white; padding: 10px; font-size: 1.25em;" href="/dashboard">HOME</a></li>
             </ul>
         </nav>
 
         <!-- Page Content -->
         <div class="page-content">
             <!-- Content goes here -->
-            <p>Date filter: <input type="text" id="minDate" name="minDate"> to <input type="text" id="maxDate" name="maxDate"></p>
+            <p id="filter">Date filter: <input type="text" id="minDate" name="minDate"> to <input type="text" id="maxDate" name="maxDate"></p>
             <table id="myTable" class="display" style="width:100%">
                 <thead>
                     <tr>
@@ -293,7 +324,14 @@
     <script>
         $(document).ready(function() {
             // Initialize the DataTable with server-side processing
+
             var table = $('#myTable').DataTable({
+                fixedColumns: {
+                    start: 2
+                },
+                scrollCollapse: true,
+                scrollY: '650px',
+                scrollX: true,
                 "processing": true,
                 "serverSide": true,
                 "ajax": {
@@ -313,9 +351,10 @@
                         }
                     }
                 },
-                "dom": '<"top"Blf>rtip', // Adjust DOM positioning here
+                "dom": '<"top"lB><"tableWrapper"rt><"bottom"ip>',
                 buttons: [
                     {
+                        className: 'exportExcelButton',
                         text: 'Export to Excel',
                         action: function (e, dt, button, config) {
                             var minDateVal = $('#minDate').val();
