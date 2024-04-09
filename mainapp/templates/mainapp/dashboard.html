@@ -330,15 +330,7 @@
 
     <script>
         $(document).ready(function() {
-            // Initialize the DataTable with server-side processing
-
             var table = $('#myTable').DataTable({
-                fixedColumns: {
-                    start: 2
-                },
-                scrollCollapse: true,
-                scrollY: '650px',
-                scrollX: true,
                 "processing": true,
                 "serverSide": true,
                 "ajax": {
@@ -347,12 +339,10 @@
                     "data": function(d) {
                         var minDateVal = $('#minDate').val();
                         var maxDateVal = $('#maxDate').val();
-                        // Only add the date filters if both dates are set and not empty
                         if (minDateVal && maxDateVal) {
                             d.minDate = minDateVal;
                             d.maxDate = maxDateVal;
                         } else {
-                            // If dates are not set or empty, remove the properties from the request
                             delete d.minDate;
                             delete d.maxDate;
                         }
@@ -361,104 +351,104 @@
                 "dom": '<"top"<lB><"export_button"f>><"tableWrapper"rt><"bottom"ip>',
                 buttons: [
                     {
-                        className: 'exportExcelButton',
                         text: 'Export to Excel',
+                        className: 'exportExcelButton',
                         action: function (e, dt, button, config) {
                             var minDateVal = $('#minDate').val();
                             var maxDateVal = $('#maxDate').val();
-                            // Check if both minDate and maxDate have values
                             if (!minDateVal || !maxDateVal) {
                                 alert('Please apply a date filter before exporting.');
-                                return; // Do not proceed with the export
+                                return; // Abort export
+                            }
+                            if (!confirm("Are you sure you want to export the data to Excel?")) {
+                                return; // Abort export
                             }
                             var params = dt.ajax.params();
-                            // Add an export flag to the parameters
                             params.export = true;
-                            // Remove pagination parameters
                             delete params.start;
                             delete params.length;
-                            // Build the query string
                             var queryString = $.param(params);
-                            // Set the location to your export endpoint with the query string
                             window.location.href = '/dashboard?' + queryString;
                         },
-                        // Initially disable the export button
-                        attr:  { disabled: true, id: 'exportButton' }
+                        attr: { id: 'exportButton' }
                     }
                 ],
                 "columns": [
-                { "data": "Side" },
-                { "data": "Cust_ID" },
-                { "data": "AuthorizationKey" },
-                { "data": "Customer" },
-                { "data": "orderDate" },
-                { "data": "OrderCode" },
-                { "data": "Express" },
-                { "data": "ProductionNumber" },
-                { "data": "ShopNumber" },
-                { "data": "Est_ReadyDate" },
-                { "data": "Update_Est_FinishedDate" },
-                { "data": "Customer_RequireDate" },
-                { "data": "FinishedDate" },
-                { "data": "DispatchedDate" },
-                { "data": "LensType" },
-                { "data": "Corridor" },
-                { "data": "Degresstion" },
-                { "data": "LensIndex" },
-                { "data": "Dia" },
-                { "data": "SubDia" },
-                { "data": "Color" },
-                { "data": "Coat" },
-                { "data": "SPH" },
-                { "data": "CYL" },
-                { "data": "Axis" },
-                { "data": "Addition" },
-                { "data": "DECX" },
-                { "data": "DECY" },
-                { "data": "PSMH" },
-                { "data": "PSMH_VALUE" },
-                { "data": "PSMV" },
-                { "data": "PSMV_VALUE" },
-                { "data": "Tint" },
-                { "data": "TINT_VALUE" },
-                { "data": "ORDER_TINT_GRADIENT" },
-                { "data": "Material" },
-                { "data": "Cutting" },
-                { "data": "UV" },
-                { "data": "Qty" },
-                { "data": "OrderStatus" },
-                { "data": "Attachment" },
-                { "data": "Remark" },
-                { "data": "HorBox" },
-                { "data": "VerBox" },
-                { "data": "DBL" },
-                { "data": "FarPD" },
-                { "data": "FittingHeight" },
-                { "data": "NearPD" },
-                { "data": "SegHeight" },
-                { "data": "CVD" },
-                { "data": "FFA" },
-                { "data": "PTA" },
-                { "data": "NormalReadingDistance" },
-                { "data": "CustomizedInset" },
-                { "data": "Pending" },
-                { "data": "FlashMirror" },
-                { "data": "RoundShape" },
-                { "data": "PreOptimized" },
-                { "data": "FrameType" },
-                { "data": "SharpEdge" },
-                { "data": "OC_Filename" },
-                { "data": "FrameShape" },
-                { "data": "DiaOval" },
-                { "data": "codemax5" },
-                { "data": "descriptionmax5" },
-                { "data": "CustomerGroup" },
+                    { "data": "Side" },
+                    { "data": "Cust_ID" },
+                    { "data": "AuthorizationKey" },
+                    { "data": "Customer" },
+                    { "data": "orderDate" },
+                    { "data": "OrderCode" },
+                    { "data": "Express" },
+                    { "data": "ProductionNumber" },
+                    { "data": "ShopNumber" },
+                    { "data": "Est_ReadyDate" },
+                    { "data": "Update_Est_FinishedDate" },
+                    { "data": "Customer_RequireDate" },
+                    { "data": "FinishedDate" },
+                    { "data": "DispatchedDate" },
+                    { "data": "LensType" },
+                    { "data": "Corridor" },
+                    { "data": "Degresstion" },
+                    { "data": "LensIndex" },
+                    { "data": "Dia" },
+                    { "data": "SubDia" },
+                    { "data": "Color" },
+                    { "data": "Coat" },
+                    { "data": "SPH" },
+                    { "data": "CYL" },
+                    { "data": "Axis" },
+                    { "data": "Addition" },
+                    { "data": "DECX" },
+                    { "data": "DECY" },
+                    { "data": "PSMH" },
+                    { "data": "PSMH_VALUE" },
+                    { "data": "PSMV" },
+                    { "data": "PSMV_VALUE" },
+                    { "data": "Tint" },
+                    { "data": "TINT_VALUE" },
+                    { "data": "ORDER_TINT_GRADIENT" },
+                    { "data": "Material" },
+                    { "data": "Cutting" },
+                    { "data": "UV" },
+                    { "data": "Qty" },
+                    { "data": "OrderStatus" },
+                    { "data": "Attachment" },
+                    { "data": "Remark" },
+                    { "data": "HorBox" },
+                    { "data": "VerBox" },
+                    { "data": "DBL" },
+                    { "data": "FarPD" },
+                    { "data": "FittingHeight" },
+                    { "data": "NearPD" },
+                    { "data": "SegHeight" },
+                    { "data": "CVD" },
+                    { "data": "FFA" },
+                    { "data": "PTA" },
+                    { "data": "NormalReadingDistance" },
+                    { "data": "CustomizedInset" },
+                    { "data": "Pending" },
+                    { "data": "FlashMirror" },
+                    { "data": "RoundShape" },
+                    { "data": "PreOptimized" },
+                    { "data": "FrameType" },
+                    { "data": "SharpEdge" },
+                    { "data": "OC_Filename" },
+                    { "data": "FrameShape" },
+                    { "data": "DiaOval" },
+                    { "data": "codemax5" },
+                    { "data": "descriptionmax5" },
+                    { "data": "CustomerGroup" },
                 ],
+                initComplete: function(settings, json) {
+                    updateExportButtonStatus();
+                }
                 
                 // You might need to adjust or remove this custom filtering since server-side takes care of filtering
             });
         
-            // Function to update the export button's disabled status
+             // Function to update the export button's disabled status
             function updateExportButtonStatus() {
                 var minDateVal = $('#minDate').val();
                 var maxDateVal = $('#maxDate').val();
@@ -469,21 +459,17 @@
                 }
             }
 
-            // Setup the DatePicker
             $("#minDate, #maxDate").datepicker({
                 dateFormat: "yy/mm/dd",
                 onSelect: function() {
-                    updateExportButtonStatus(); // Update the export button status on date select
+                    updateExportButtonStatus();
                     table.draw();
                 }
             }).on('change', function() {
-                updateExportButtonStatus(); // Also update on manual change
+                updateExportButtonStatus();
             });
 
-            updateExportButtonStatus(); // Initial check on page load
-        
-            // Because filtering is moved to server-side, you may not need the custom client-side filtering
-            // However, if you have non-date-related client-side filtering, it can be retained
+            updateExportButtonStatus();
         });
     </script>
 </body>
