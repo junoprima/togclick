@@ -88,13 +88,22 @@ def login_view(request):
 
 @login_required
 def dashboard_view(request):
+    username_to_customergroup = {
+        'YZO': 'YZO',
+        'Blueeyes': 'Blueeyes',
+        'NSTall': 'NSTall'
+    }
+
+    # Get the username of the logged-in user.
+    current_username = request.user.username
+
     if request.GET.get('export') == 'true':
-        # If it's an export request, call the export function
+        # If it's an export request, call the export function.
         return export_data_to_excel(request)
     
     elif request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         start = int(request.GET.get('start', 0))
-        length = int(request.GET.get('length', 10))  # Default to 10 if not provided
+        length = int(request.GET.get('length', 10))  # Default to 10 if not provided.
         min_date = request.GET.get('minDate', '')
         max_date = request.GET.get('maxDate', '')
 
@@ -102,29 +111,31 @@ def dashboard_view(request):
         db = client['togclick']
         collection = db['togclick']
 
-        # Extracting sort parameters from DataTables request
-        sort_column_number = request.GET.get('order[0][column]', '')
-        sort_direction = request.GET.get('order[0][dir]', 'asc')
-        sort_column_name = request.GET.get(f'columns[{sort_column_number}][data]', '')
+        # Construct the base query.
+        # If the user is not togAdmin, filter data based on the CustomerGroup.
+        base_query = {}
+        if current_username != 'togAdmin':
+            # Use the username to get the specific CustomerGroup,
+            # falling back to the username if no specific mapping is found.
+            customergroup = username_to_customergroup.get(current_username, current_username)
+            base_query['CustomerGroup'] = customergroup
 
-        # Converting sort direction to pymongo's format
-        sort_order = ASCENDING if sort_direction == 'asc' else DESCENDING
-
-        # Construct filter query based on date range if present
-        filter_query = {}
         if min_date and max_date:
-            filter_query['orderDate'] = {
+            base_query['orderDate'] = {
                 '$gte': min_date + ' 00:00:00',
                 '$lte': max_date + ' 23:59:59'
             }
-
-        total_records = collection.count_documents(filter_query)
-        filtered_records = collection.count_documents(filter_query)
-
-        # Sorting and paginating
-        data = list(collection.find(filter_query).sort(sort_column_name, sort_order).skip(start).limit(length))
-        client.close()
         
+        total_records = collection.count_documents(base_query)
+        filtered_records = collection.count_documents(base_query)
+
+        # Fetch the sorted and paginated data.
+        sort_column_number = request.GET.get('order[0][column]', '')
+        sort_direction = request.GET.get('order[0][dir]', 'asc')
+        sort_column_name = request.GET.get(f'columns[{sort_column_number}][data]', '')
+        sort_order = ASCENDING if sort_direction == 'asc' else DESCENDING
+        data = list(collection.find(base_query).sort(sort_column_name, sort_order).skip(start).limit(length))
+        client.close()
 
         formatted_data = [
             {
@@ -199,17 +210,18 @@ def dashboard_view(request):
             for item in data
         ]
 
-        # Prepare the response
+        # Prepare the response for DataTables.
         response = {
             "draw": int(request.GET.get('draw', 0)),
             "recordsTotal": total_records,
             "recordsFiltered": filtered_records,
             "data": formatted_data
         }
-        
+
         return JsonResponse(response)
-        #return render(request, 'mainapp/dashboard.html', {'data': formatted_data})
+
     else:
+        # Render the dashboard page for non-AJAX requests.
         return render(request, 'mainapp/dashboard.html')
 
 def export_data_to_excel(request):
