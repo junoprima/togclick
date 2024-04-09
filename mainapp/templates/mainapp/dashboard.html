@@ -318,6 +318,13 @@
                     {
                         text: 'Export to Excel',
                         action: function (e, dt, button, config) {
+                            var minDateVal = $('#minDate').val();
+                            var maxDateVal = $('#maxDate').val();
+                            // Check if both minDate and maxDate have values
+                            if (!minDateVal || !maxDateVal) {
+                                alert('Please apply a date filter before exporting.');
+                                return; // Do not proceed with the export
+                            }
                             var params = dt.ajax.params();
                             // Add an export flag to the parameters
                             params.export = true;
@@ -328,7 +335,9 @@
                             var queryString = $.param(params);
                             // Set the location to your export endpoint with the query string
                             window.location.href = '/dashboard?' + queryString;
-                        }
+                        },
+                        // Initially disable the export button
+                        attr:  { disabled: true, id: 'exportButton' }
                     }
                 ],
                 "columns": [
@@ -403,17 +412,29 @@
                 // You might need to adjust or remove this custom filtering since server-side takes care of filtering
             });
         
+            // Function to update the export button's disabled status
+            function updateExportButtonStatus() {
+                var minDateVal = $('#minDate').val();
+                var maxDateVal = $('#maxDate').val();
+                if (minDateVal && maxDateVal) {
+                    $('#exportButton').prop('disabled', false);
+                } else {
+                    $('#exportButton').prop('disabled', true);
+                }
+            }
+
             // Setup the DatePicker
             $("#minDate, #maxDate").datepicker({
                 dateFormat: "yy/mm/dd",
                 onSelect: function() {
+                    updateExportButtonStatus(); // Update the export button status on date select
                     table.draw();
                 }
             }).on('change', function() {
-                if (!this.value) {
-                    table.draw();  // If the date is cleared, redraw the table without the filter
-                }
+                updateExportButtonStatus(); // Also update on manual change
             });
+
+            updateExportButtonStatus(); // Initial check on page load
         
             // Because filtering is moved to server-side, you may not need the custom client-side filtering
             // However, if you have non-date-related client-side filtering, it can be retained
