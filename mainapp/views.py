@@ -8,10 +8,10 @@ from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 from django.http import HttpResponse
 from datetime import datetime
+from pymongo import ASCENDING, DESCENDING
 import json
 import ijson
 import pandas as pd
-
 
 def read_sql_file(file_path):
     with open(file_path, 'r') as file:
@@ -94,19 +94,35 @@ def dashboard_view(request):
     
     elif request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         start = int(request.GET.get('start', 0))
-        length = int(request.GET.get('length', 1000))  # Default to 10 if not provided
-        page = start // length + 1
-        
-        # Connect to MongoDB
+        length = int(request.GET.get('length', 10))  # Default to 10 if not provided
+        min_date = request.GET.get('minDate', '')
+        max_date = request.GET.get('maxDate', '')
+
         client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
         db = client['togclick']
         collection = db['togclick']
-        
-        # Calculate total number of records
-        total_records = collection.count_documents({})
-        
-        # Fetch paginated data
-        data = list(collection.find({}).skip(start).limit(length))
+
+        # Extracting sort parameters from DataTables request
+        sort_column_number = request.GET.get('order[0][column]', '')
+        sort_direction = request.GET.get('order[0][dir]', 'asc')
+        sort_column_name = request.GET.get(f'columns[{sort_column_number}][data]', '')
+
+        # Converting sort direction to pymongo's format
+        sort_order = ASCENDING if sort_direction == 'asc' else DESCENDING
+
+        # Construct filter query based on date range if present
+        filter_query = {}
+        if min_date and max_date:
+            filter_query['orderDate'] = {
+                '$gte': min_date + ' 00:00:00',
+                '$lte': max_date + ' 23:59:59'
+            }
+
+        total_records = collection.count_documents(filter_query)
+        filtered_records = collection.count_documents(filter_query)
+
+        # Sorting and paginating
+        data = list(collection.find(filter_query).sort(sort_column_name, sort_order).skip(start).limit(length))
         client.close()
         
 
@@ -187,7 +203,7 @@ def dashboard_view(request):
         response = {
             "draw": int(request.GET.get('draw', 0)),
             "recordsTotal": total_records,
-            "recordsFiltered": total_records,
+            "recordsFiltered": filtered_records,
             "data": formatted_data
         }
         

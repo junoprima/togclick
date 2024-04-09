@@ -297,13 +297,20 @@
                 "processing": true,
                 "serverSide": true,
                 "ajax": {
-                    "url": "/dashboard/", // Adjust to your Django view endpoint
+                    "url": "/dashboard/",
                     "type": "GET",
-
                     "data": function(d) {
-                        // Pass additional parameters to the server-side processing URL
-                        d.minDate = $('#minDate').val();
-                        d.maxDate = $('#maxDate').val();
+                        var minDateVal = $('#minDate').val();
+                        var maxDateVal = $('#maxDate').val();
+                        // Only add the date filters if both dates are set and not empty
+                        if (minDateVal && maxDateVal) {
+                            d.minDate = minDateVal;
+                            d.maxDate = maxDateVal;
+                        } else {
+                            // If dates are not set or empty, remove the properties from the request
+                            delete d.minDate;
+                            delete d.maxDate;
+                        }
                     }
                 },
                 "dom": '<"top"Blf>rtip', // Adjust DOM positioning here
@@ -398,9 +405,13 @@
         
             // Setup the DatePicker
             $("#minDate, #maxDate").datepicker({
-                dateFormat: "yy/mm/dd", // Adjust date format as needed
+                dateFormat: "yy/mm/dd",
                 onSelect: function() {
-                    table.draw(); // Redraw the table with new date range
+                    table.draw();
+                }
+            }).on('change', function() {
+                if (!this.value) {
+                    table.draw();  // If the date is cleared, redraw the table without the filter
                 }
             });
         
