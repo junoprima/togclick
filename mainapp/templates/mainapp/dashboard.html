@@ -89,6 +89,7 @@
             transition-duration: 0.4s;
             cursor: pointer;
             border-radius: 5px;
+            justify-self: left;
         }
         
         .exportExcelButton:hover {
@@ -97,11 +98,17 @@
             border: 2px solid #007bff;
         }
 
-        .top, .bottom {
+        .top {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            justify-self: flex-start;
+        }
+
+        .bottom {
             display: flex;
             justify-content: space-between;
         }
-        
+  
         .tableWrapper {
             clear: both;
         }
@@ -111,7 +118,7 @@
 <body>
 
     <div class="top-bar">
-        <span class="toggle-btn" style="font-size:1em; ">&#9776;</span>
+        <span class="toggle-btn" style="font-size:1em; ">&#9776;Toggle sidebar</span>
     </div>
 
     <div class="wrapper">
@@ -351,7 +358,7 @@
                         }
                     }
                 },
-                "dom": '<"top"lB><"tableWrapper"rt><"bottom"ip>',
+                "dom": '<"top"<lB><"export_button"f>><"tableWrapper"rt><"bottom"ip>',
                 buttons: [
                     {
                         className: 'exportExcelButton',

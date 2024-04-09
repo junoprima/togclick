@@ -24,6 +24,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('export/data', views.export_data_to_excel, name='export_data_to_excel'),
-    path('login/', login_view, name='login'),
-    
+    path('login/', login_view, name='login'),    
 ]
