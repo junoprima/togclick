@@ -91,51 +91,44 @@ def dashboard_view(request):
     username_to_customergroup = {
         'YZO': 'YZO',
         'Blueeyes': 'Blueeyes',
-        'NSTall': 'NSTall'
+        'NSTall': 'NSTall',
+        'togAdmin': None
     }
 
-    # Get the username of the logged-in user.
     current_username = request.user.username
+    customergroup = username_to_customergroup.get(current_username, current_username)
 
     if request.GET.get('export') == 'true':
-        # If it's an export request, call the export function.
-        return export_data_to_excel(request)
+        return export_data_to_excel(request, customergroup)
     
     elif request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         start = int(request.GET.get('start', 0))
-        length = int(request.GET.get('length', 10))  # Default to 10 if not provided.
+        length = int(request.GET.get('length', 10))
         min_date = request.GET.get('minDate', '')
         max_date = request.GET.get('maxDate', '')
+        sort_column_number = request.GET.get('order[0][column]', '0')  # Default to first column
+        sort_direction = request.GET.get('order[0][dir]', 'asc')
+        # Adjust this to match the actual field name in MongoDB for the column you're sorting by
+        sort_column_name = request.GET.get(f'columns[{sort_column_number}][data]', 'orderDate') 
 
         client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
         db = client['togclick']
         collection = db['togclick']
 
-        # Construct the base query.
-        # If the user is not togAdmin, filter data based on the CustomerGroup.
         base_query = {}
-        if current_username != 'togAdmin':
-            # Use the username to get the specific CustomerGroup,
-            # falling back to the username if no specific mapping is found.
-            customergroup = username_to_customergroup.get(current_username, current_username)
+        if customergroup:  # Filter by CustomerGroup if not togAdmin
             base_query['CustomerGroup'] = customergroup
-
         if min_date and max_date:
-            base_query['orderDate'] = {
-                '$gte': min_date + ' 00:00:00',
-                '$lte': max_date + ' 23:59:59'
-            }
+            base_query['orderDate'] = {'$gte': min_date + ' 00:00:00', '$lte': max_date + ' 23:59:59'}
         
-        total_records = collection.count_documents(base_query)
+        total_records = collection.count_documents({})
         filtered_records = collection.count_documents(base_query)
 
-        # Fetch the sorted and paginated data.
-        sort_column_number = request.GET.get('order[0][column]', '')
-        sort_direction = request.GET.get('order[0][dir]', 'asc')
-        sort_column_name = request.GET.get(f'columns[{sort_column_number}][data]', '')
+        # Apply sorting based on the requested column and direction
         sort_order = ASCENDING if sort_direction == 'asc' else DESCENDING
         data = list(collection.find(base_query).sort(sort_column_name, sort_order).skip(start).limit(length))
         client.close()
+
 
         formatted_data = [
             {
@@ -212,40 +205,41 @@ def dashboard_view(request):
 
         # Prepare the response for DataTables.
         response = {
-            "draw": int(request.GET.get('draw', 0)),
+            "draw": int(request.GET.get('draw', 1)),
             "recordsTotal": total_records,
             "recordsFiltered": filtered_records,
             "data": formatted_data
         }
-
         return JsonResponse(response)
 
     else:
         # Render the dashboard page for non-AJAX requests.
         return render(request, 'mainapp/dashboard.html')
 
-def export_data_to_excel(request):
+def export_data_to_excel(request, customergroup):
     min_date = request.GET.get('minDate')
     max_date = request.GET.get('maxDate')
+
+    client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
+    db = client['togclick']
+    collection = db['togclick']
+
+    base_query = {}
+    if customergroup:  # Apply filter if not togAdmin
+        base_query['CustomerGroup'] = customergroup
+    if min_date and max_date:
+        base_query['orderDate'] = {'$gte': min_date, '$lte': max_date}
     
-    print(f"Export requested with min_date: {min_date}, max_date: {max_date}")
-    
-    data = fetch_filtered_data_from_mongodb(min_date=min_date, max_date=max_date, skip=0, limit=None)
-    
-    if not data:
-        print("No data was returned for export.")
+    data = list(collection.find(base_query))
 
     df = pd.DataFrame(data)
-    
-    if df.empty:
-        print("DataFrame is empty after attempting to convert data to DataFrame.")
-    
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="exported_data.xlsx"'
-    
+
     with pd.ExcelWriter(response, engine='openpyxl') as writer:
         df.to_excel(writer, index=False)
 
     return response
+
 def logged_out_view(request):
     return render(request, 'logged_out.html')
