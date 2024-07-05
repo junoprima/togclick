@@ -2,42 +2,30 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from pathlib import Path
+from django.http import JsonResponse, HttpResponse
 from pymongo import MongoClient
-from pymongo.errors import ServerSelectionTimeoutError
-from django.http import HttpResponse
 from datetime import datetime
-from pymongo import ASCENDING, DESCENDING
-import json
-import ijson
 import pandas as pd
 
-def read_sql_file(file_path):
-    with open(file_path, 'r') as file:
-        return file.read()
-    
 def parse_date(date_string):
-    """Parses a string to a datetime object."""
     try:
         return datetime.strptime(date_string, '%Y/%m/%d')
     except ValueError as e:
         print(f"Date parsing error: {e}")
         return None
-    
-def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit=None):
-    client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
+
+def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit=None, search_value=None):
+    client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
     db = client['togclick']
     collection = db['togclick']
 
-    # Prepare the filter and projection within an aggregation pipeline
     pipeline = [
         {
             "$addFields": {
                 "parsedOrderDate": {
                     "$dateFromString": {
                         "dateString": "$orderDate",
-                        "format": "%Y/%m/%d %H:%M:%S"  # Adjust to match the format used in your MongoDB
+                        "format": "%Y/%m/%d %H:%M:%S"
                     }
                 }
             }
@@ -47,7 +35,6 @@ def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit
         }
     ]
 
-    # Add date filters to the match stage if they are provided
     if min_date or max_date:
         date_filter = {}
         if min_date:
@@ -60,7 +47,24 @@ def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit
                 date_filter["$lte"] = parsed_max_date
         pipeline[1]["$match"]["parsedOrderDate"] = date_filter
 
-    # Skip and limit if they are provided
+    if search_value:
+        search_query = {
+            '$or': [
+                {'Side': {'$regex': search_value, '$options': 'i'}},
+                {'Cust_ID': {'$regex': search_value, '$options': 'i'}},
+                {'AuthorizationKey': {'$regex': search_value, '$options': 'i'}},
+                {'Customer': {'$regex': search_value, '$options': 'i'}},
+                {'orderDate': {'$regex': search_value, '$options': 'i'}},
+                {'OrderCode': {'$regex': search_value, '$options': 'i'}},
+                {'Express': {'$regex': search_value, '$options': 'i'}}
+                # Add more fields here as necessary
+            ]
+        }
+        pipeline[1]["$match"].update(search_query)
+
+    total_records = collection.count_documents({})
+    filtered_records = collection.count_documents(pipeline[1]["$match"])
+
     if skip:
         pipeline.append({"$skip": skip})
     if limit:
@@ -72,7 +76,7 @@ def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit
     finally:
         client.close()
 
-    return data
+    return data, total_records, filtered_records
 
 def login_view(request):
     if request.method == 'POST':
@@ -81,7 +85,7 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            return redirect('dashboard')  # Redirect to the dashboard
+            return redirect('dashboard')
         else:
             messages.error(request, 'Invalid username or password.')
     return render(request, 'mainapp/login.html')
@@ -92,10 +96,9 @@ def dashboard_view(request):
         'YZO': 'YZO',
         'Blueeyes': 'Blueeyes',
         'NSTall': 'NSTall',
-        'togAdmin': None,  # No filtering for togAdmin
+        'togAdmin': None,
     }
 
-    # Get the username of the logged-in user.
     current_username = request.user.username
     customergroup = username_to_customergroup.get(current_username, current_username)
 
@@ -105,16 +108,16 @@ def dashboard_view(request):
     elif request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         start = int(request.GET.get('start', 0))
         length = int(request.GET.get('length', 10))
+        search_value = request.GET.get('search[value]', '')
         min_date = request.GET.get('minDate', '')
         max_date = request.GET.get('maxDate', '')
 
-        client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
+        client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
         db = client['togclick']
         collection = db['togclick']
 
-        # Construct the base query.
         base_query = {}
-        if customergroup:  # Apply the customergroup filter if available
+        if customergroup:
             base_query['CustomerGroup'] = customergroup
 
         if min_date and max_date:
@@ -122,19 +125,39 @@ def dashboard_view(request):
                 '$gte': min_date + ' 00:00:00',
                 '$lte': max_date + ' 23:59:59'
             }
-        
-        # Extract sorting parameters
+
+        if search_value:
+            search_query = {
+                "$or": [
+                    {"Side": {"$regex": search_value, "$options": "i"}},
+                    {"Cust_ID": {"$regex": search_value, "$options": "i"}},
+                    {"AuthorizationKey": {"$regex": search_value, "$options": "i"}},
+                    {"Customer": {"$regex": search_value, "$options": "i"}},
+                    {"OrderCode": {"$regex": search_value, "$options": "i"}},
+                    {"Express": {"$regex": search_value, "$options": "i"}},
+                    {"ProductionNumber": {"$regex": search_value, "$options": "i"}},
+                    {"ShopNumber": {"$regex": search_value, "$options": "i"}},
+                    {"LensType": {"$regex": search_value, "$options": "i"}},
+                    {"Corridor": {"$regex": search_value, "$options": "i"}},
+                    {"Degresstion": {"$regex": search_value, "$options": "i"}},
+                    {"Color": {"$regex": search_value, "$options": "i"}},
+                    {"Coat": {"$regex": search_value, "$options": "i"}}
+                ]
+            }
+            base_query["$and"] = [search_query]
+
         sort_column_number = request.GET.get('order[0][column]', '')
         sort_direction = request.GET.get('order[0][dir]', 'asc')
         sort_column_name = request.GET.get(f'columns[{sort_column_number}][data]', '')
         sort_order = 1 if sort_direction == 'asc' else -1
 
-        # Apply sorting
         sort = [(sort_column_name, sort_order)] if sort_column_name else []
 
         total_records = collection.count_documents({})
         filtered_records = collection.count_documents(base_query)
-        data = list(collection.find(base_query).sort(sort).skip(start).limit(length))
+
+        data = list(collection.find(base_query).sort(sort).skip(start).limit(length).allow_disk_use(True))
+
         client.close()
         formatted_data = [
             {
@@ -204,7 +227,6 @@ def dashboard_view(request):
                 'codemax5': item.get('codemax5', ''),
                 'descriptionmax5': item.get('descriptionmax5', ''),
                 'CustomerGroup': item.get('CustomerGroup', ''),
-                # Continue with other fields...
             }
             for item in data
         ]
@@ -220,42 +242,54 @@ def dashboard_view(request):
     else:
         return render(request, 'mainapp/dashboard.html')
 
+
 def export_data_to_excel(request, customergroup=None):
     min_date = request.GET.get('minDate')
     max_date = request.GET.get('maxDate')
-    
-    # Establish MongoDB connection
-    client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
+    search_value = request.GET.get('search[value]', '')
+
+    client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
     db = client['togclick']
     collection = db['togclick']
 
-    # Prepare the query based on user group and date range
     query = {}
-    if customergroup:  # Apply the customergroup filter if available
+    if customergroup:
         query['CustomerGroup'] = customergroup
 
     if min_date and max_date:
         query['orderDate'] = {'$gte': min_date + ' 00:00:00', '$lte': max_date + ' 23:59:59'}
+    
+    if search_value:
+        search_query = {
+            "$or": [
+                {"Side": {"$regex": search_value, "$options": "i"}},
+                {"Cust_ID": {"$regex": search_value, "$options": "i"}},
+                {"AuthorizationKey": {"$regex": search_value, "$options": "i"}},
+                {"Customer": {"$regex": search_value, "$options": "i"}},
+                {"OrderCode": {"$regex": search_value, "$options": "i"}},
+                {"Express": {"$regex": search_value, "$options": "i"}},
+                {"ProductionNumber": {"$regex": search_value, "$options": "i"}},
+                {"ShopNumber": {"$regex": search_value, "$options": "i"}},
+                {"LensType": {"$regex": search_value, "$options": "i"}},
+                {"Corridor": {"$regex": search_value, "$options": "i"}},
+                {"Degresstion": {"$regex": search_value, "$options": "i"}},
+                {"Color": {"$regex": search_value, "$options": "i"}},
+                {"Coat": {"$regex": search_value, "$options": "i"}}
+            ]
+        }
+        query["$and"] = [search_query]
 
-    # Fetch data based on the constructed query
     data = list(collection.find(query))
-
-    # Close the MongoDB connection
     client.close()
 
-    # Convert the data to a pandas DataFrame
     df = pd.DataFrame(data)
 
-    # Check if the DataFrame is empty
     if df.empty:
-        print("DataFrame is empty after attempting to convert data to DataFrame.")
         return HttpResponse("No data available for the selected filters.", content_type='text/plain')
 
-    # Setup the response headers for an Excel file
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="exported_data.xlsx"'
 
-    # Write the DataFrame to an Excel file
     with pd.ExcelWriter(response, engine='openpyxl') as writer:
         df.to_excel(writer, index=False)
 
