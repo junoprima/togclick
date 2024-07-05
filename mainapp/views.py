@@ -15,7 +15,8 @@ def parse_date(date_string):
         return None
 
 def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit=None, search_value=None):
-    client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
+    #client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
+    client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
     db = client['togclick']
     collection = db['togclick']
 
@@ -248,7 +249,8 @@ def export_data_to_excel(request, customergroup=None):
     max_date = request.GET.get('maxDate')
     search_value = request.GET.get('search[value]', '')
 
-    client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
+    #client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
+    client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
     db = client['togclick']
     collection = db['togclick']
 
