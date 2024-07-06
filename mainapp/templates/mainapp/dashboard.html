@@ -6,9 +6,8 @@
     <title>Dashboard with Integrated Sidebar Toggle in Top Bar</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.2.7/css/responsive.dataTables.min.css">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.2.9/css/responsive.dataTables.min.css">
-    
     <style>
         body, html {
             margin: 0;
@@ -127,7 +126,6 @@
             background-color: #0056b3;
         }
 
-        /* Additional CSS for responsive design */
         @media (max-width: 600px) {
             .date-filter {
                 flex-direction: column;
@@ -139,16 +137,7 @@
             .date-filter button {
                 width: 100%;
             }
-
-            .top-bar {
-                flex-direction: column;
-            }
-
-            .top-bar .toggle-btn {
-                margin-bottom: 10px;
-            }
         }
-
     </style>
 </head>
 <body>
@@ -169,7 +158,7 @@
                 <input type="text" id="maxDate" name="maxDate" placeholder="mm/dd/yyyy">
                 <button id="clear-dates">Clear</button>
             </div>
-            <table id="myTable" class="display" style="width:100%">
+            <table id="myTable" class="display nowrap" style="width:100%">
                 <thead>
                     <tr>
                         <th>Side</th>
@@ -325,7 +314,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
     <script src="https://cdn.datatables.net/buttons/1.6.2/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/responsive/2.2.9/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.2.7/js/dataTables.responsive.min.js"></script>
     <script>
         $(document).ready(function () {
             $('.toggle-btn').click(function () {
@@ -336,19 +325,24 @@
                 sidebar.css('left', sidebarLeft);
                 $('.page-content').css('margin-left', pageContentMargin);
             });
-
+    
             var table = $('#myTable').DataTable({
                 "processing": true,
                 "serverSide": true,
-                "responsive": true, // Enable responsive
+                "responsive": true,
                 "ajax": {
                     "url": "/dashboard/",
                     "type": "GET",
                     "data": function (d) {
                         var minDateVal = $('#minDate').val();
                         var maxDateVal = $('#maxDate').val();
-                        d.minDate = minDateVal;
-                        d.maxDate = maxDateVal;
+                        if (minDateVal && maxDateVal) {
+                            d.minDate = minDateVal;
+                            d.maxDate = maxDateVal;
+                        } else {
+                            delete d.minDate;
+                            delete d.maxDate;
+                        }
                     }
                 },
                 "dom": '<"top"Bf><"tableWrapper"rt><"bottom"lip>',
@@ -359,9 +353,9 @@
                         action: function (e, dt, button, config) {
                             var minDateVal = $('#minDate').val();
                             var maxDateVal = $('#maxDate').val();
-                            var searchVal = $('input[type="search"]').val(); // Get search input value
-                            if (!minDateVal && !maxDateVal && !searchVal) { // Check if no filter is applied
-                                alert('Please apply a date filter or search before exporting.');
+                            var searchValue = dt.search();
+                            if ((!minDateVal || !maxDateVal) && !searchValue) {
+                                alert('Please apply a date filter or use the search bar before exporting.');
                                 return;
                             }
                             if (!confirm("Are you sure you want to export the data to Excel?")) {
@@ -371,6 +365,7 @@
                             params.export = true;
                             delete params.start;
                             delete params.length;
+                            params.searchValue = searchValue;
                             var queryString = $.param(params);
                             window.location.href = '/dashboard?' + queryString;
                         },
@@ -449,18 +444,18 @@
                     updateExportButtonStatus();
                 }
             });
-
+    
             function updateExportButtonStatus() {
                 var minDateVal = $('#minDate').val();
                 var maxDateVal = $('#maxDate').val();
-                var searchVal = $('input[type="search"]').val();
-                if (minDateVal || maxDateVal || searchVal) {
+                var searchValue = $('#myTable_filter input').val();
+                if (minDateVal && maxDateVal || searchValue) {
                     $('#exportButton').prop('disabled', false);
                 } else {
                     $('#exportButton').prop('disabled', true);
                 }
             }
-
+    
             $("#minDate, #maxDate").datepicker({
                 dateFormat: "yy/mm/dd",
                 onSelect: function () {
@@ -470,21 +465,20 @@
             }).on('change', function () {
                 updateExportButtonStatus();
             });
-
+    
             $('#clear-dates').click(function () {
                 $('#minDate').val('');
                 $('#maxDate').val('');
                 table.draw();
             });
-
-            $('input[type="search"]').on('input', function () {
+    
+            $('#myTable_filter input').on('input', function () {
                 updateExportButtonStatus();
             });
-
+    
             updateExportButtonStatus();
         });
-
-
     </script>
+     
 </body>
 </html>

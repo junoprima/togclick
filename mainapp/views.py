@@ -15,69 +15,30 @@ def parse_date(date_string):
         return None
 
 def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit=None, search_value=None):
-    #client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
-    client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
+    client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
     db = client['togclick']
     collection = db['togclick']
 
-    pipeline = [
-        {
-            "$addFields": {
-                "parsedOrderDate": {
-                    "$dateFromString": {
-                        "dateString": "$orderDate",
-                        "format": "%Y/%m/%d %H:%M:%S"
-                    }
-                }
-            }
-        },
-        {
-            "$match": {}
-        }
-    ]
+    query = {}
 
-    if min_date or max_date:
-        date_filter = {}
-        if min_date:
-            parsed_min_date = parse_date(min_date)
-            if parsed_min_date:
-                date_filter["$gte"] = parsed_min_date
-        if max_date:
-            parsed_max_date = parse_date(max_date)
-            if parsed_max_date:
-                date_filter["$lte"] = parsed_max_date
-        pipeline[1]["$match"]["parsedOrderDate"] = date_filter
+    if min_date and max_date:
+        parsed_min_date = parse_date(min_date)
+        parsed_max_date = parse_date(max_date)
+        if parsed_min_date and parsed_max_date:
+            query['orderDate'] = {'$gte': min_date + ' 00:00:00', '$lte': max_date + ' 23:59:59'}
 
     if search_value:
-        search_query = {
-            '$or': [
-                {'Side': {'$regex': search_value, '$options': 'i'}},
-                {'Cust_ID': {'$regex': search_value, '$options': 'i'}},
-                {'AuthorizationKey': {'$regex': search_value, '$options': 'i'}},
-                {'Customer': {'$regex': search_value, '$options': 'i'}},
-                {'orderDate': {'$regex': search_value, '$options': 'i'}},
-                {'OrderCode': {'$regex': search_value, '$options': 'i'}},
-                {'Express': {'$regex': search_value, '$options': 'i'}}
-                # Add more fields here as necessary
-            ]
-        }
-        pipeline[1]["$match"].update(search_query)
+        query['$text'] = {'$search': search_value}
 
-    total_records = collection.count_documents({})
-    filtered_records = collection.count_documents(pipeline[1]["$match"])
+    data = list(collection.find(query).sort([
+        ("orderDate", -1),
+        ("AuthorizationKey", 1),
+        ("OrderCode", -1),
+        ("Side", 1)
+    ]).skip(skip).limit(limit).allow_disk_use(True))
+    client.close()
 
-    if skip:
-        pipeline.append({"$skip": skip})
-    if limit:
-        pipeline.append({"$limit": limit})
-
-    try:
-        cursor = collection.aggregate(pipeline)
-        data = list(cursor)
-    finally:
-        client.close()
-
-    return data, total_records, filtered_records
+    return data
 
 def login_view(request):
     if request.method == 'POST':
@@ -109,9 +70,9 @@ def dashboard_view(request):
     elif request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         start = int(request.GET.get('start', 0))
         length = int(request.GET.get('length', 10))
-        search_value = request.GET.get('search[value]', '')
         min_date = request.GET.get('minDate', '')
         max_date = request.GET.get('maxDate', '')
+        search_value = request.GET.get('search[value]', '')
 
         client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
         db = client['togclick']
@@ -128,37 +89,18 @@ def dashboard_view(request):
             }
 
         if search_value:
-            search_query = {
-                "$or": [
-                    {"Side": {"$regex": search_value, "$options": "i"}},
-                    {"Cust_ID": {"$regex": search_value, "$options": "i"}},
-                    {"AuthorizationKey": {"$regex": search_value, "$options": "i"}},
-                    {"Customer": {"$regex": search_value, "$options": "i"}},
-                    {"OrderCode": {"$regex": search_value, "$options": "i"}},
-                    {"Express": {"$regex": search_value, "$options": "i"}},
-                    {"ProductionNumber": {"$regex": search_value, "$options": "i"}},
-                    {"ShopNumber": {"$regex": search_value, "$options": "i"}},
-                    {"LensType": {"$regex": search_value, "$options": "i"}},
-                    {"Corridor": {"$regex": search_value, "$options": "i"}},
-                    {"Degresstion": {"$regex": search_value, "$options": "i"}},
-                    {"Color": {"$regex": search_value, "$options": "i"}},
-                    {"Coat": {"$regex": search_value, "$options": "i"}}
-                ]
-            }
-            base_query["$and"] = [search_query]
-
-        sort_column_number = request.GET.get('order[0][column]', '')
-        sort_direction = request.GET.get('order[0][dir]', 'asc')
-        sort_column_name = request.GET.get(f'columns[{sort_column_number}][data]', '')
-        sort_order = 1 if sort_direction == 'asc' else -1
-
-        sort = [(sort_column_name, sort_order)] if sort_column_name else []
+            base_query['$text'] = {'$search': search_value}
 
         total_records = collection.count_documents({})
         filtered_records = collection.count_documents(base_query)
-
-        data = list(collection.find(base_query).sort(sort).skip(start).limit(length).allow_disk_use(True))
-
+        
+        data = list(collection.find(base_query).sort([
+            ("orderDate", -1),
+            ("AuthorizationKey", 1),
+            ("OrderCode", -1),
+            ("Side", 1)
+        ]).skip(start).limit(length).allow_disk_use(True))
+        
         client.close()
         formatted_data = [
             {
@@ -247,10 +189,9 @@ def dashboard_view(request):
 def export_data_to_excel(request, customergroup=None):
     min_date = request.GET.get('minDate')
     max_date = request.GET.get('maxDate')
-    search_value = request.GET.get('search[value]', '')
+    search_value = request.GET.get('searchValue')
 
-    #client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
-    client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
+    client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
     db = client['togclick']
     collection = db['togclick']
 
@@ -260,28 +201,16 @@ def export_data_to_excel(request, customergroup=None):
 
     if min_date and max_date:
         query['orderDate'] = {'$gte': min_date + ' 00:00:00', '$lte': max_date + ' 23:59:59'}
-    
-    if search_value:
-        search_query = {
-            "$or": [
-                {"Side": {"$regex": search_value, "$options": "i"}},
-                {"Cust_ID": {"$regex": search_value, "$options": "i"}},
-                {"AuthorizationKey": {"$regex": search_value, "$options": "i"}},
-                {"Customer": {"$regex": search_value, "$options": "i"}},
-                {"OrderCode": {"$regex": search_value, "$options": "i"}},
-                {"Express": {"$regex": search_value, "$options": "i"}},
-                {"ProductionNumber": {"$regex": search_value, "$options": "i"}},
-                {"ShopNumber": {"$regex": search_value, "$options": "i"}},
-                {"LensType": {"$regex": search_value, "$options": "i"}},
-                {"Corridor": {"$regex": search_value, "$options": "i"}},
-                {"Degresstion": {"$regex": search_value, "$options": "i"}},
-                {"Color": {"$regex": search_value, "$options": "i"}},
-                {"Coat": {"$regex": search_value, "$options": "i"}}
-            ]
-        }
-        query["$and"] = [search_query]
 
-    data = list(collection.find(query))
+    if search_value:
+        query['$text'] = {'$search': search_value}
+
+    data = list(collection.find(query).sort([
+        ("orderDate", -1),
+        ("AuthorizationKey", 1),
+        ("OrderCode", -1),
+        ("Side", 1)
+    ]))
     client.close()
 
     df = pd.DataFrame(data)
