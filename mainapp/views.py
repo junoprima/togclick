@@ -15,28 +15,58 @@ def parse_date(date_string):
         return None
 
 def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit=None, search_value=None):
-    client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
+    client = MongoClient('mongodb://togclick:P%40ssw0rd@localhost:27017')
     db = client['togclick']
     collection = db['togclick']
 
-    query = {}
+    pipeline = [
+        {
+            "$addFields": {
+                "parsedOrderDate": {
+                    "$dateFromString": {
+                        "dateString": "$orderDate",
+                        "format": "%Y/%m/%d %H:%M:%S"
+                    }
+                }
+            }
+        },
+        {
+            "$match": {}
+        }
+    ]
 
-    if min_date and max_date:
-        parsed_min_date = parse_date(min_date)
-        parsed_max_date = parse_date(max_date)
-        if parsed_min_date and parsed_max_date:
-            query['orderDate'] = {'$gte': min_date + ' 00:00:00', '$lte': max_date + ' 23:59:59'}
+    if min_date or max_date:
+        date_filter = {}
+        if min_date:
+            parsed_min_date = parse_date(min_date)
+            if parsed_min_date:
+                date_filter["$gte"] = parsed_min_date
+        if max_date:
+            parsed_max_date = parse_date(max_date)
+            if parsed_max_date:
+                date_filter["$lte"] = parsed_max_date
+        pipeline[1]["$match"]["parsedOrderDate"] = date_filter
 
     if search_value:
-        query['$text'] = {'$search': search_value}
+        search_filter = {
+            "$or": [
+                {"OrderCode": {"$regex": search_value, "$options": "i"}},
+                {"Customer": {"$regex": search_value, "$options": "i"}},
+                {"AuthorizationKey": {"$regex": search_value, "$options": "i"}}
+            ]
+        }
+        pipeline[1]["$match"].update(search_filter)
 
-    data = list(collection.find(query).sort([
-        ("orderDate", -1),
-        ("AuthorizationKey", 1),
-        ("OrderCode", -1),
-        ("Side", 1)
-    ]).skip(skip).limit(limit).allow_disk_use(True))
-    client.close()
+    if skip:
+        pipeline.append({"$skip": skip})
+    if limit:
+        pipeline.append({"$limit": limit})
+
+    try:
+        cursor = collection.aggregate(pipeline)
+        data = list(cursor)
+    finally:
+        client.close()
 
     return data
 
@@ -89,18 +119,22 @@ def dashboard_view(request):
             }
 
         if search_value:
-            base_query['$text'] = {'$search': search_value}
+            base_query["$or"] = [
+                {"OrderCode": {"$regex": search_value, "$options": "i"}},
+                {"Customer": {"$regex": search_value, "$options": "i"}},
+                {"AuthorizationKey": {"$regex": search_value, "$options": "i"}}
+            ]
 
         total_records = collection.count_documents({})
         filtered_records = collection.count_documents(base_query)
-        
+
         data = list(collection.find(base_query).sort([
             ("orderDate", -1),
             ("AuthorizationKey", 1),
             ("OrderCode", -1),
             ("Side", 1)
         ]).skip(start).limit(length).allow_disk_use(True))
-        
+
         client.close()
         formatted_data = [
             {
@@ -189,7 +223,7 @@ def dashboard_view(request):
 def export_data_to_excel(request, customergroup=None):
     min_date = request.GET.get('minDate')
     max_date = request.GET.get('maxDate')
-    search_value = request.GET.get('searchValue')
+    search_value = request.GET.get('search[value]', '')
 
     client = MongoClient('mongodb://togclick:P%40ssw0rd@13.251.191.127:27017')
     db = client['togclick']
@@ -203,14 +237,18 @@ def export_data_to_excel(request, customergroup=None):
         query['orderDate'] = {'$gte': min_date + ' 00:00:00', '$lte': max_date + ' 23:59:59'}
 
     if search_value:
-        query['$text'] = {'$search': search_value}
+        query["$or"] = [
+            {"OrderCode": {"$regex": search_value, "$options": "i"}},
+            {"Customer": {"$regex": search_value, "$options": "i"}},
+            {"AuthorizationKey": {"$regex": search_value, "$options": "i"}}
+        ]
 
     data = list(collection.find(query).sort([
         ("orderDate", -1),
         ("AuthorizationKey", 1),
         ("OrderCode", -1),
         ("Side", 1)
-    ]))
+    ]).allow_disk_use(True))
     client.close()
 
     df = pd.DataFrame(data)
