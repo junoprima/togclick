@@ -115,8 +115,7 @@ def dashboard_view(request):
                 {"AuthorizationKey": {"$regex": search_value, "$options": "i"}}
             ]
 
-        total_records = collection.count_documents(base_query if not search_value else {})
-        filtered_records = collection.count_documents(base_query)
+        total_records = collection.estimated_document_count()
 
         projection = {field: 1 for field in [
             "Side", "Cust_ID", "AuthorizationKey", "Customer", "orderDate",
@@ -215,9 +214,10 @@ def dashboard_view(request):
         response = {
             "draw": int(request.GET.get('draw', 1)),
             "recordsTotal": total_records,
-            "recordsFiltered": filtered_records,
+            "recordsFiltered": total_records,  # fallback if not filtering
             "data": formatted_data
         }
+
 
         return JsonResponse(response)
     else:
