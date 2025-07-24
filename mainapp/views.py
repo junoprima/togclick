@@ -115,10 +115,24 @@ def dashboard_view(request):
                 {"AuthorizationKey": {"$regex": search_value, "$options": "i"}}
             ]
 
-        total_records = collection.count_documents({})
+        total_records = collection.count_documents(base_query if not search_value else {})
         filtered_records = collection.count_documents(base_query)
 
-        data = list(collection.find(base_query).sort([
+        projection = {field: 1 for field in [
+            "Side", "Cust_ID", "AuthorizationKey", "Customer", "orderDate",
+            "OrderCode", "Express", "ProductionNumber", "ShopNumber",
+            "Est_ReadyDate", "Update_Est_FinishedDate", "Customer_RequireDate",
+            "FinishedDate", "DispatchedDate", "LensType", "Corridor", "Degresstion",
+            "LensIndex", "Dia", "SubDia", "Color", "Coat", "SPH", "CYL", "Axis",
+            "Addition", "DECX", "DECY", "PSMH", "PSMH_VALUE", "PSMV", "PSMV_VALUE",
+            "Tint", "TINT_VALUE", "ORDER_TINT_GRADIENT", "Material", "Cutting", "UV",
+            "Qty", "OrderStatus", "Attachment", "Remark", "HorBox", "VerBox", "DBL",
+            "FarPD", "FittingHeight", "NearPD", "SegHeight", "CVD", "FFA", "PTA",
+            "NormalReadingDistance", "CustomizedInset", "Pending", "FlashMirror",
+            "RoundShape", "PreOptimized", "FrameType", "SharpEdge", "OC_Filename",
+            "FrameShape", "DiaOval", "codemax5", "descriptionmax5", "CustomerGroup"
+        ]}
+        data = list(collection.find(base_query, projection).sort([
             ("orderDate", -1),
             ("AuthorizationKey", 1),
             ("OrderCode", -1),
@@ -132,7 +146,7 @@ def dashboard_view(request):
                 'Cust_ID': item.get('Cust_ID', ''),
                 'AuthorizationKey': item.get('AuthorizationKey', ''),
                 'Customer': item.get('Customer', ''),
-                'orderDate': item.get('orderDate').strftime('%Y-%m-%d') if isinstance(item.get('orderDate'), datetime.datetime) else '',
+                'orderDate': item.get('orderDate').strftime('%Y-%m-%d') if isinstance(item.get('orderDate'), datetime) else '',
                 'OrderCode': item.get('OrderCode', ''),
                 'Express': item.get('Express', ''),
                 'ProductionNumber': item.get('ProductionNumber', ''),
@@ -239,7 +253,22 @@ def export_data_to_excel(request, customergroup=None):
             {"AuthorizationKey": {"$regex": search_value, "$options": "i"}}
         ]
 
-    data = list(collection.find(query).sort([
+    projection = {field: 1 for field in [
+        "Side", "Cust_ID", "AuthorizationKey", "Customer", "orderDate",
+        "OrderCode", "Express", "ProductionNumber", "ShopNumber",
+        "Est_ReadyDate", "Update_Est_FinishedDate", "Customer_RequireDate",
+        "FinishedDate", "DispatchedDate", "LensType", "Corridor", "Degresstion",
+        "LensIndex", "Dia", "SubDia", "Color", "Coat", "SPH", "CYL", "Axis",
+        "Addition", "DECX", "DECY", "PSMH", "PSMH_VALUE", "PSMV", "PSMV_VALUE",
+        "Tint", "TINT_VALUE", "ORDER_TINT_GRADIENT", "Material", "Cutting", "UV",
+        "Qty", "OrderStatus", "Attachment", "Remark", "HorBox", "VerBox", "DBL",
+        "FarPD", "FittingHeight", "NearPD", "SegHeight", "CVD", "FFA", "PTA",
+        "NormalReadingDistance", "CustomizedInset", "Pending", "FlashMirror",
+        "RoundShape", "PreOptimized", "FrameType", "SharpEdge", "OC_Filename",
+        "FrameShape", "DiaOval", "codemax5", "descriptionmax5", "CustomerGroup"
+    ]}
+
+    data = list(collection.find(query, projection).sort([
         ("orderDate", -1),
         ("AuthorizationKey", 1),
         ("OrderCode", -1),
