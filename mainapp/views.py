@@ -132,7 +132,7 @@ def dashboard_view(request):
                 'Cust_ID': item.get('Cust_ID', ''),
                 'AuthorizationKey': item.get('AuthorizationKey', ''),
                 'Customer': item.get('Customer', ''),
-                'orderDate': item.get('orderDate', '').split(' ')[0] if item.get('orderDate') else '',
+                'orderDate': item.get('orderDate').strftime('%Y-%m-%d') if isinstance(item.get('orderDate'), datetime.datetime) else '',
                 'OrderCode': item.get('OrderCode', ''),
                 'Express': item.get('Express', ''),
                 'ProductionNumber': item.get('ProductionNumber', ''),
