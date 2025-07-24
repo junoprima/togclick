@@ -1,0 +1,4 @@
+Django==5.0.6
+pandas==2.2.2
+pymongo==4.7.2
+pyodbc==5.1.0
