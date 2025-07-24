@@ -19,21 +19,7 @@ def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit
     db = client['togclick']
     collection = db['togclick']
 
-    pipeline = [
-        {
-            "$addFields": {
-                "parsedOrderDate": {
-                    "$dateFromString": {
-                        "dateString": "$orderDate",
-                        "format": "%Y/%m/%d %H:%M:%S"
-                    }
-                }
-            }
-        },
-        {
-            "$match": {}
-        }
-    ]
+    pipeline = [{"$match": {}}]
 
     if min_date or max_date:
         date_filter = {}
@@ -45,7 +31,7 @@ def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit
             parsed_max_date = parse_date(max_date)
             if parsed_max_date:
                 date_filter["$lte"] = parsed_max_date
-        pipeline[1]["$match"]["parsedOrderDate"] = date_filter
+        pipeline[0]["$match"]["orderDate"] = date_filter
 
     if search_value:
         search_filter = {
@@ -55,7 +41,7 @@ def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit
                 {"AuthorizationKey": {"$regex": search_value, "$options": "i"}}
             ]
         }
-        pipeline[1]["$match"].update(search_filter)
+        pipeline[0]["$match"].update(search_filter)
 
     if skip:
         pipeline.append({"$skip": skip})
@@ -69,6 +55,7 @@ def fetch_filtered_data_from_mongodb(min_date=None, max_date=None, skip=0, limit
         client.close()
 
     return data
+
 
 def login_view(request):
     if request.method == 'POST':
@@ -113,10 +100,13 @@ def dashboard_view(request):
             base_query['CustomerGroup'] = customergroup
 
         if min_date and max_date:
-            base_query['orderDate'] = {
-                '$gte': min_date + ' 00:00:00',
-                '$lte': max_date + ' 23:59:59'
-            }
+            try:
+                base_query['orderDate'] = {
+                    '$gte': datetime.strptime(min_date, '%Y/%m/%d'),
+                    '$lte': datetime.strptime(max_date, '%Y/%m/%d')
+                }
+            except ValueError:
+                pass  # handle bad date format if needed
 
         if search_value:
             base_query["$or"] = [
@@ -234,7 +224,13 @@ def export_data_to_excel(request, customergroup=None):
         query['CustomerGroup'] = customergroup
 
     if min_date and max_date:
-        query['orderDate'] = {'$gte': min_date + ' 00:00:00', '$lte': max_date + ' 23:59:59'}
+        try:
+            query['orderDate'] = {
+                '$gte': datetime.strptime(min_date, '%Y/%m/%d'),
+                '$lte': datetime.strptime(max_date, '%Y/%m/%d')
+            }
+        except ValueError:
+            pass
 
     if search_value:
         query["$or"] = [
